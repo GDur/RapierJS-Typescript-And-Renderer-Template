@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "start": "vite",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
@@ -11,5 +12,11 @@
   "devDependencies": {
     "typescript": "^5.2.2",
     "vite": "^5.2.11"
+  },
+  "dependencies": {
+    "@dimforge/rapier2d-compat": "^0.13.1",
+    "@math.gl/core": "^4.0.1",
+    "pixi.js": "^8.1.1",
+    "sass": "^1.77.1"
   }
 }
