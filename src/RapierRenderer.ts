@@ -1,63 +1,69 @@
 import * as RAPIER from '@dimforge/rapier2d-compat';
 import { World } from '@dimforge/rapier2d-compat';
 // import * as PIXI from 'pixi.js';
-// import { Viewport } from 'pixi-viewport';
+import { Viewport } from 'pixi-viewport';
 //import { World } from '@dimforge/rapier2d-compat';
-import { Application, Graphics, Color, Assets, Sprite } from 'pixi.js';
-import { log } from './utils';
+import { Application, Graphics, Color } from 'pixi.js';
 
 const BOX_INSTANCE_INDEX = 0;
 const BALL_INSTANCE_INDEX = 1;
 
 var kk = 0;
 
-const app = new Application();
-
-(async () => {
-
-    // Intialize the application.
-    await app.init({ background: '#242233', resizeTo: window });
-
-    // Then adding the application's canvas to the DOM body.
-    document.body.appendChild(app.canvas);
-
-})();
 
 export class RapierRenderer {
     coll2gfx: Map<number, Graphics>;
     colorIndex: number;
     colorPalette: Array<number>;
-    app = app;
     // app!: Application<Renderer<HTMLCanvasElement>>;
     //viewport: Viewport;
     instanceGroups = new Array<Array<Graphics>>();
     lines = new Graphics()
 
-    constructor(pixiContianerSelector: string, public world: World) {
+    app = new Application();
+    viewport: Viewport | any = null;
 
-        // High pixel Ratio make the rendering extremely slow, so we cap it.
-        const pixelRatio = window.devicePixelRatio
-            ? Math.min(window.devicePixelRatio, 1.5)
-            : 1;
+    async loadPixi(cb: Function) {
+
+        const app = new Application();
+
+        (async () => {
+
+            // Intialize the application.
+            await app.init({ background: '#242233', resizeTo: window });
+
+            // Then adding the application's canvas to the DOM body.
+            document.body.appendChild(app.canvas);
+
+            // create viewport
+            this.viewport = new Viewport({
+                screenWidth: window.innerWidth,
+                screenHeight: window.innerHeight,
+                worldWidth: 1000,
+                worldHeight: 1000,
+                events: app.renderer.events
+                // the interaction module is important for wheel to work properly when renderer.view is placed or scaled
+            })
+
+            // add the viewport to the stage
+            app.stage.addChild(this.viewport)
+
+            // activate plugins
+            this.viewport
+                .drag()
+                .pinch()
+                .wheel()
+                .decelerate()
+
+            cb(this.viewport, app)
+        })();
+    }
+    constructor(pixiContianerSelector: string, public world: World, cb: Function) {
+        const self = this
 
         this.coll2gfx = new Map();
         this.colorIndex = 0;
         this.colorPalette = [0xf3d9b9, 0x005a91, 0x05c5e0, 0x1f7a8c];
-
-        /*
-        this.viewport = new Viewport({
-          screenWidth: window.innerWidth,
-          screenHeight: window.innerHeight,
-          worldWidth: 1000,
-          worldHeight: 1000,
-          interaction: this.renderer.plugins.interaction,
-        });
-    
-        this.scene.addChild(this.viewport);
-        this.viewport.drag().pinch().wheel().decelerate();
-    */
-        let me = this;
-
 
         function onContextMenu(event: UIEvent) {
             event.preventDefault();
@@ -66,10 +72,14 @@ export class RapierRenderer {
         document.oncontextmenu = onContextMenu;
         document.body.oncontextmenu = onContextMenu;
 
+        this.loadPixi(() => {
 
-        this.initInstances();
+            self.initInstances();
 
-        this.startRenderLoop();
+            self.startRenderLoop();
+            cb()
+        })
+
     }
 
     // 60 fps:
@@ -101,9 +111,11 @@ export class RapierRenderer {
         this.instanceGroups = [];
         this.instanceGroups.push(
             this.colorPalette.map((color) => {
-                let graphics = new Graphics()
-                    .rect(-1.0, 1.0, 2.0, -2.0)
-                    .fill(color);
+                let graphics = new Graphics();
+
+                // Rectangle
+                graphics.rect(-.5, -.5, 1.0, 1.0);
+                graphics.fill(color);
                 return graphics;
             })
         );
@@ -111,8 +123,8 @@ export class RapierRenderer {
         this.instanceGroups.push(
             this.colorPalette.map((color) => {
                 let graphics = new Graphics()
-                    .circle(0.0, 0.0, 1.0)
-                    .fill(color);
+                graphics.circle(0.0, 0.0, 1.0)
+                graphics.fill(color);
                 return graphics;
             })
         );
@@ -125,7 +137,7 @@ export class RapierRenderer {
 
         if (!this.lines) {
             this.lines = new Graphics();
-            // this.viewport.addChild(this.lines);
+            this.viewport.addChild(this.lines);
         }
 
         if (debugRender) {
@@ -139,7 +151,9 @@ export class RapierRenderer {
 
                 let color = Color.shared.setValue([cls[i * 8], cls[i * 8 + 1], cls[i * 8 + 2]]).toHex();
 
-                this.lines.lineStyle(1.0, color, cls[i * 8 + 3]);
+                this.lines.fill(color);
+                this.lines.width = 1.0
+                // , color, cls[i * 8 + 3]
                 this.lines.moveTo(vtx[i * 4], -vtx[i * 4 + 1]);
                 this.lines.lineTo(vtx[i * 4 + 2], -vtx[i * 4 + 3]);
             }
@@ -152,8 +166,11 @@ export class RapierRenderer {
     }
 
     lookAt(pos: { zoom: number; target: { x: number; y: number } }) {
-        // this.viewport.setZoom(pos.zoom);
-        // this.viewport.moveCenter(pos.target.x, pos.target.y);
+        //this.viewport.zoom = pos.zoom
+        // this.viewport.zoom(pos.zoom);
+        this.viewport.scale.x = (pos.zoom)
+        this.viewport.scale.y = (pos.zoom)
+        this.viewport.moveCenter(pos.target.x, pos.target.y);
     }
 
     updatePositions(world: RAPIER.World) {
@@ -191,33 +208,16 @@ export class RapierRenderer {
 
         switch (collider.shape.type) {
             case RAPIER.ShapeType.Cuboid:
-                let hext = collider.halfExtents();
-                // instance = this.instanceGroups[BOX_INSTANCE_INDEX][instanceId];
-                // graphics = instance.clone();
-                // // graphics.scale.x = hext.x;
-                // // graphics.scale.y = hext.y;
-                // log(hext)
-                //
-                // graphics.x = hext.x + this.app.screen.width / 2;
-                // graphics.y = hext.y + this.app.screen.height / 2;
-                // this.app.stage.addChild(graphics);
 
                 graphics = new Graphics();
 
-                // Rectangle
-                graphics.rect(0, 0, 11.0, 11.0);
-                graphics.fill(0xde3249);
-                // Center the sprite's anchor point
-                graphics.scale.set(0.5);
+                instance = this.instanceGroups[BOX_INSTANCE_INDEX][instanceId];
+                graphics = instance.clone();
 
-                // Move the sprite to the center of the screen
-                // graphics.x = hext.x + app.screen.width / 2;
-                // graphics.y = hext.y + app.screen.height / 2;
-                graphics.scale.x = hext.x // + app.screen.width / 2;
-                graphics.scale.y = hext.y // + app.screen.height / 2;
+                let hext = collider.halfExtents();
+                graphics.scale.x = hext.x * 2
+                graphics.scale.y = hext.y * 2
 
-
-                app.stage.addChild(graphics);
                 break;
 
             case RAPIER.ShapeType.Ball:
@@ -226,7 +226,6 @@ export class RapierRenderer {
                 graphics = instance.clone();
                 graphics.scale.x = rad;
                 graphics.scale.y = rad;
-                this.app.stage.addChild(graphics);
                 break;
 
             case RAPIER.ShapeType.Polyline:
@@ -240,7 +239,6 @@ export class RapierRenderer {
                     graphics.lineTo(vertices[i], -vertices[i + 1]);
                 }
 
-                this.app.stage.addChild(graphics);
                 break;
 
             case RAPIER.ShapeType.HeightField:
@@ -257,7 +255,6 @@ export class RapierRenderer {
                     graphics.lineTo(-scale.x / 2.0 + i * step, -heights[i] * scale.y);
                 }
 
-                this.app.stage.addChild(graphics);
 
                 break;
             case RAPIER.ShapeType.ConvexPolygon:
@@ -270,7 +267,6 @@ export class RapierRenderer {
                     graphics.lineTo(vertices[i], -vertices[i + 1]);
                 }
 
-                this.app.stage.addChild(graphics);
                 break;
 
             default:
@@ -282,6 +278,7 @@ export class RapierRenderer {
         let r = collider.rotation();
 
         if (graphics) {
+            this.viewport.addChild(graphics!);
             graphics.position.x = t.x;
             graphics.position.y = -t.y;
             graphics.rotation = r;

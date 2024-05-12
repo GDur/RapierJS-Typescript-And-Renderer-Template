@@ -33,8 +33,6 @@ export function initiatePhysicsWorld(world: World, helper: RapierHelper) {
 
   setInterval(() => {
     let dynamicOffset = Math.cos(i) * 5;
-
-    // log(movingWall.rigidBody?.translation())
     movingWall.rigidBody!.setTranslation(new Vector2(dynamicOffset, 0), true);
     i += 0.02;
   }, 1000 / 60);

@@ -24,30 +24,34 @@ export async function init() {
   let world = new RAPIER.World(new Vector2(0, 0));
 
   // create the renderer
-  let rapierRenderer = new RapierRenderer('#game-container-canvas', world);
-  /*
-  rapierRenderer.lookAt({
-    target: {
-      x: 0,
-      y: 0,
-    },
-    zoom: 20,
-  });
-  */
+  let rapierRenderer = new RapierRenderer('#game-container-canvas', world, () => {
 
-  // create the helper (makes it easy to create boxes and rendering them)
-  let helper = new RapierHelper(world, rapierRenderer);
 
-  initiatePhysicsWorld(world, helper);
+    // create the helper (makes it easy to create boxes and rendering them)
+    let helper = new RapierHelper(world, rapierRenderer);
 
-  // about 60 steps per second
-  let gameLoop = () => {
-    // progress physics simulation one step
-    world.step();
+    initiatePhysicsWorld(world, helper);
+
+    // about 60 steps per second
+    let gameLoop = () => {
+      // progress physics simulation one step
+      world.step();
+      window.requestAnimationFrame(gameLoop);
+    };
+
     window.requestAnimationFrame(gameLoop);
-  };
 
-  window.requestAnimationFrame(gameLoop);
+    rapierRenderer.lookAt({
+      target: {
+        x: 0,
+        y: 0,
+      },
+      zoom: 25,
+    });
+  });
+
+
+
 }
 
 init();
