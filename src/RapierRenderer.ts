@@ -3,7 +3,8 @@ import { World } from '@dimforge/rapier2d-compat';
 // import * as PIXI from 'pixi.js';
 // import { Viewport } from 'pixi-viewport';
 //import { World } from '@dimforge/rapier2d-compat';
-import { Application, Graphics, Color } from 'pixi.js';
+import { Application, Graphics, Color, Assets, Sprite } from 'pixi.js';
+import { log } from './utils';
 
 const BOX_INSTANCE_INDEX = 0;
 const BALL_INSTANCE_INDEX = 1;
@@ -11,14 +12,15 @@ const BALL_INSTANCE_INDEX = 1;
 var kk = 0;
 
 const app = new Application();
-// Asynchronous IIFE
+
 (async () => {
 
     // Intialize the application.
-    await app.init({ background: '#1099bb', resizeTo: window });
+    await app.init({ background: '#242233', resizeTo: window });
 
     // Then adding the application's canvas to the DOM body.
     document.body.appendChild(app.canvas);
+
 })();
 
 export class RapierRenderer {
@@ -56,9 +58,6 @@ export class RapierRenderer {
     */
         let me = this;
 
-        function onWindowResize() {
-            // me.renderer.resize(window.innerWidth, window.innerHeight);
-        }
 
         function onContextMenu(event: UIEvent) {
             event.preventDefault();
@@ -67,7 +66,6 @@ export class RapierRenderer {
         document.oncontextmenu = onContextMenu;
         document.body.oncontextmenu = onContextMenu;
 
-        window.addEventListener('resize', onWindowResize, false);
 
         this.initInstances();
 
@@ -127,7 +125,7 @@ export class RapierRenderer {
 
         if (!this.lines) {
             this.lines = new Graphics();
-            //this.viewport.addChild(this.lines);
+            // this.viewport.addChild(this.lines);
         }
 
         if (debugRender) {
@@ -150,16 +148,16 @@ export class RapierRenderer {
         }
 
         this.updatePositions(world);
-        //this.renderer.render(this.scene);
 
     }
 
     lookAt(pos: { zoom: number; target: { x: number; y: number } }) {
-        //this.viewport.setZoom(pos.zoom);
+        // this.viewport.setZoom(pos.zoom);
         // this.viewport.moveCenter(pos.target.x, pos.target.y);
     }
 
     updatePositions(world: RAPIER.World) {
+
         world.forEachCollider((elt) => {
             let gfx = this.coll2gfx.get(elt.handle);
             let translation = elt.translation();
@@ -182,91 +180,114 @@ export class RapierRenderer {
         this.colorIndex = 0;
     }
 
-    addCollider(collider: RAPIER.Collider) {
-        /*
+    async addCollider(collider: RAPIER.Collider) {
+
         let i;
         let parent = collider.parent()!;
         let instance;
         let graphics;
         let vertices;
         let instanceId = parent.isFixed() ? 0 : this.colorIndex + 1;
-    
-        switch (collider.shapeType()) {
-          case RAPIER.ShapeType.Cuboid:
-            let hext = collider.halfExtents();
-            instance = this.instanceGroups[BOX_INSTANCE_INDEX][instanceId];
-            graphics = instance.clone();
-            graphics.scale.x = hext.x;
-            graphics.scale.y = hext.y;
-            this.app.stage.addChild(graphics);
-            break;
-          case RAPIER.ShapeType.Ball:
-            let rad = collider.radius();
-            instance = this.instanceGroups[BALL_INSTANCE_INDEX][instanceId];
-            graphics = instance.clone();
-            graphics.scale.x = rad;
-            graphics.scale.y = rad;
-            this.app.stage.addChild(graphics);
-            break;
-          case RAPIER.ShapeType.Polyline:
-            vertices = Array.from(collider.vertices());
-            graphics = new PIXI.Graphics();
-            graphics
-              .lineStyle(0.2, this.colorPalette[instanceId])
-              .moveTo(vertices[0], -vertices[1]);
-    
-            for (i = 2; i < vertices.length; i += 2) {
-              graphics.lineTo(vertices[i], -vertices[i + 1]);
-            }
-    
-            this.app.stage.addChild(graphics);
-            break;
-          case RAPIER.ShapeType.HeightField:
-            let heights = Array.from(collider.heightfieldHeights());
-            let scale = collider.heightfieldScale();
-            let step = scale.x / (heights.length - 1);
-    
-            graphics = new PIXI.Graphics();
-            graphics
-              .lineStyle(0.2, this.colorPalette[instanceId])
-              .moveTo(-scale.x / 2.0, -heights[0] * scale.y);
-    
-            for (i = 1; i < heights.length; i += 1) {
-              graphics.lineTo(-scale.x / 2.0 + i * step, -heights[i] * scale.y);
-            }
-    
-            this.app.stage.addChild(graphics);
-            // this.viewport.addChild(graphics);
-            break;
-          case RAPIER.ShapeType.ConvexPolygon:
-            vertices = Array.from(collider.vertices());
-            graphics = new PIXI.Graphics();
-            graphics.beginFill(this.colorPalette[instanceId], 1.0);
-            graphics.moveTo(vertices[0], -vertices[1]);
-    
-            for (i = 2; i < vertices.length; i += 2) {
-              graphics.lineTo(vertices[i], -vertices[i + 1]);
-            }
-    
-            this.app.stage.addChild(graphics);
-    
-            // this.viewport.addChild(graphics);
-            break;
-          default:
-            console.log('Unknown shape to render.');
-            break;
+
+        switch (collider.shape.type) {
+            case RAPIER.ShapeType.Cuboid:
+                let hext = collider.halfExtents();
+                // instance = this.instanceGroups[BOX_INSTANCE_INDEX][instanceId];
+                // graphics = instance.clone();
+                // // graphics.scale.x = hext.x;
+                // // graphics.scale.y = hext.y;
+                // log(hext)
+                //
+                // graphics.x = hext.x + this.app.screen.width / 2;
+                // graphics.y = hext.y + this.app.screen.height / 2;
+                // this.app.stage.addChild(graphics);
+
+                graphics = new Graphics();
+
+                // Rectangle
+                graphics.rect(0, 0, 11.0, 11.0);
+                graphics.fill(0xde3249);
+                // Center the sprite's anchor point
+                graphics.scale.set(0.5);
+
+                // Move the sprite to the center of the screen
+                // graphics.x = hext.x + app.screen.width / 2;
+                // graphics.y = hext.y + app.screen.height / 2;
+                graphics.scale.x = hext.x // + app.screen.width / 2;
+                graphics.scale.y = hext.y // + app.screen.height / 2;
+
+
+                app.stage.addChild(graphics);
+                break;
+
+            case RAPIER.ShapeType.Ball:
+                let rad = collider.radius();
+                instance = this.instanceGroups[BALL_INSTANCE_INDEX][instanceId];
+                graphics = instance.clone();
+                graphics.scale.x = rad;
+                graphics.scale.y = rad;
+                this.app.stage.addChild(graphics);
+                break;
+
+            case RAPIER.ShapeType.Polyline:
+                vertices = Array.from(collider.vertices());
+                graphics = new Graphics();
+                graphics
+                    .lineStyle(0.2, this.colorPalette[instanceId])
+                    .moveTo(vertices[0], -vertices[1]);
+
+                for (i = 2; i < vertices.length; i += 2) {
+                    graphics.lineTo(vertices[i], -vertices[i + 1]);
+                }
+
+                this.app.stage.addChild(graphics);
+                break;
+
+            case RAPIER.ShapeType.HeightField:
+                let heights = Array.from(collider.heightfieldHeights());
+                let scale = collider.heightfieldScale();
+                let step = scale.x / (heights.length - 1);
+
+                graphics = new Graphics();
+                graphics
+                    .lineStyle(0.2, this.colorPalette[instanceId])
+                    .moveTo(-scale.x / 2.0, -heights[0] * scale.y);
+
+                for (i = 1; i < heights.length; i += 1) {
+                    graphics.lineTo(-scale.x / 2.0 + i * step, -heights[i] * scale.y);
+                }
+
+                this.app.stage.addChild(graphics);
+
+                break;
+            case RAPIER.ShapeType.ConvexPolygon:
+                vertices = Array.from(collider.vertices());
+                graphics = new Graphics();
+                graphics.beginFill(this.colorPalette[instanceId], 1.0);
+                graphics.moveTo(vertices[0], -vertices[1]);
+
+                for (i = 2; i < vertices.length; i += 2) {
+                    graphics.lineTo(vertices[i], -vertices[i + 1]);
+                }
+
+                this.app.stage.addChild(graphics);
+                break;
+
+            default:
+                console.log('Unknown shape to render.');
+                break;
         }
-    
+
         let t = collider.translation();
         let r = collider.rotation();
-    
+
         if (graphics) {
-          graphics.position.x = t.x;
-          graphics.position.y = -t.y;
-          graphics.rotation = r;
-          this.coll2gfx.set(collider.handle, graphics);
+            graphics.position.x = t.x;
+            graphics.position.y = -t.y;
+            graphics.rotation = r;
+            this.coll2gfx.set(collider.handle, graphics);
         }
         this.colorIndex = (this.colorIndex + 1) % (this.colorPalette.length - 1);
-        */
+
     }
 }

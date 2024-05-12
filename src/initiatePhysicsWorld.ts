@@ -29,11 +29,13 @@ export function initiatePhysicsWorld(world: World, helper: RapierHelper) {
     colliderDesc: ColliderDesc.cuboid(10, 0.1),
     rotation: Math.PI * 0.5,
     isFixed: true,
-  });
+  })!
 
   setInterval(() => {
     let dynamicOffset = Math.cos(i) * 5;
-    //movingWall.rigidBody.setTranslation(new Vector2(dynamicOffset, 0), true);
+
+    // log(movingWall.rigidBody?.translation())
+    movingWall.rigidBody!.setTranslation(new Vector2(dynamicOffset, 0), true);
     i += 0.02;
   }, 1000 / 60);
 
