@@ -3,45 +3,148 @@ import { World } from '@dimforge/rapier2d-compat';
 // import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 //import { World } from '@dimforge/rapier2d-compat';
-import { Application, Graphics, Color } from 'pixi.js';
+import { Application, Color, Graphics } from 'pixi.js';
+import { log } from './utils';
 
 const BOX_INSTANCE_INDEX = 0;
 const BALL_INSTANCE_INDEX = 1;
 
-var kk = 0;
-
+type RapierRendererProps = {
+    debugRender: boolean;
+    background?: string;
+    selector?: string;
+    world: World;
+    onInit: Function;
+    onTick: Function;
+    tps?: number | undefined;
+}
 
 export class RapierRenderer {
     coll2gfx: Map<number, Graphics>;
     colorIndex: number;
     colorPalette: Array<number>;
-    // app!: Application<Renderer<HTMLCanvasElement>>;
-    //viewport: Viewport;
     instanceGroups = new Array<Array<Graphics>>();
     lines = new Graphics()
 
     app = new Application();
     viewport: Viewport | any = null;
+    world: World;
+
+    constructor(public props: RapierRendererProps) {
+        const self = this
+        this.world = props.world
+        this.coll2gfx = new Map();
+        this.colorIndex = 0;
+        this.colorPalette = [0xf3d9b9, 0x005a91, 0x05c5e0, 0x1f7a8c];
+
+        function onContextMenu(event: UIEvent) {
+            event.preventDefault();
+        }
+        let tps = props.tps || 1000 / 30
+
+        document.oncontextmenu = onContextMenu;
+        document.body.oncontextmenu = onContextMenu;
+
+        this.loadPixi(() => {
+
+            self.initInstances();
+
+            self.startRenderLoop(props.onTick);
+
+            props.onInit()
+
+            setInterval(() => {
+                self.world.step();
+            }, tps)
+        })
+
+    }
+
+    // 60 fps:
+    startRenderLoop(onTick: any) {
+
+        let self = this;
+        let start: number;
+        let previousTimeStamp = 0;
+
+        function step(timestamp: number) {
+            if (start === undefined) {
+                start = timestamp;
+            }
+            // const totalElapsedMs = timestamp - start;
+            // const dt = timestamp - previousTimeStamp;
+            // console.log(totalElapsedMs, dt);
+
+            // render the graphics
+            self.render(self.world, self.props.debugRender);
+
+            self.updatePositions(self.world);
+            onTick()
+            previousTimeStamp = timestamp;
+            window.requestAnimationFrame(step);
+        }
+        window.requestAnimationFrame(step);
+    }
+
+    initInstances() {
+
+        this.instanceGroups = [];
+        this.instanceGroups.push(
+            this.colorPalette.map((color) => {
+
+                let graphics = new Graphics();
+                graphics.rect(-.5, -.5, 1.0, 1.0);
+                graphics.fill(color);
+                return graphics;
+            })
+        );
+
+        this.instanceGroups.push(
+            this.colorPalette.map((color) => {
+
+                let graphics = new Graphics()
+                graphics.circle(0.0, 0.0, 1.0)
+                graphics.fill(color);
+                return graphics;
+            })
+        );
+
+    }
 
     async loadPixi(cb: Function) {
 
         const app = new Application();
 
         (async () => {
+            let ratio = window.devicePixelRatio
+            let container
+            let canvas
+
+            if (this.props.selector) {
+                container = document.querySelector(this.props.selector)
+                canvas = document.createElement('canvas')
+                container?.appendChild(canvas)
+            }
 
             // Intialize the application.
-            await app.init({ background: '#242233', resizeTo: window });
+            await app.init({
+                background: this.props.background ? this.props.background : '#242233',
+                view: this.props.selector ? canvas as HTMLCanvasElement : undefined,
+                resizeTo: !this.props.selector ? window : container as HTMLElement,
+                antialias: true,
+                resolution: ratio
+            });
 
             // Then adding the application's canvas to the DOM body.
             document.body.appendChild(app.canvas);
 
             // create viewport
             this.viewport = new Viewport({
-                screenWidth: window.innerWidth,
-                screenHeight: window.innerHeight,
-                worldWidth: 1000,
-                worldHeight: 1000,
-                events: app.renderer.events
+                screenWidth: window.innerWidth / ratio,
+                screenHeight: window.innerHeight / ratio,
+                worldWidth: 1000 / ratio,
+                worldHeight: 1000 / ratio,
+                events: app.renderer.events,
                 // the interaction module is important for wheel to work properly when renderer.view is placed or scaled
             })
 
@@ -58,82 +161,7 @@ export class RapierRenderer {
             cb(this.viewport, app)
         })();
     }
-    constructor(pixiContianerSelector: string, public world: World, cb: Function) {
-        const self = this
-
-        this.coll2gfx = new Map();
-        this.colorIndex = 0;
-        this.colorPalette = [0xf3d9b9, 0x005a91, 0x05c5e0, 0x1f7a8c];
-
-        function onContextMenu(event: UIEvent) {
-            event.preventDefault();
-        }
-
-        document.oncontextmenu = onContextMenu;
-        document.body.oncontextmenu = onContextMenu;
-
-        this.loadPixi(() => {
-
-            self.initInstances();
-
-            self.startRenderLoop();
-            cb()
-        })
-
-    }
-
-    // 60 fps:
-    startRenderLoop() {
-
-        let self = this;
-        let start: number;
-        let previousTimeStamp = 0;
-
-        function step(timestamp: number) {
-            if (start === undefined) {
-                start = timestamp;
-            }
-            const totalElapsedMs = timestamp - start;
-            const dt = timestamp - previousTimeStamp;
-            //console.log(totalElapsedMs, dt);
-
-            // render the graphics
-            self.render(self.world, true);
-
-            previousTimeStamp = timestamp;
-            window.requestAnimationFrame(step);
-        }
-        window.requestAnimationFrame(step);
-    }
-
-    initInstances() {
-
-        this.instanceGroups = [];
-        this.instanceGroups.push(
-            this.colorPalette.map((color) => {
-                let graphics = new Graphics();
-
-                // Rectangle
-                graphics.rect(-.5, -.5, 1.0, 1.0);
-                graphics.fill(color);
-                return graphics;
-            })
-        );
-
-        this.instanceGroups.push(
-            this.colorPalette.map((color) => {
-                let graphics = new Graphics()
-                graphics.circle(0.0, 0.0, 1.0)
-                graphics.fill(color);
-                return graphics;
-            })
-        );
-
-    }
-
     render(world: RAPIER.World, debugRender: boolean) {
-
-        kk += 1;
 
         if (!this.lines) {
             this.lines = new Graphics();
@@ -149,27 +177,35 @@ export class RapierRenderer {
 
             for (let i = 0; i < vtx.length / 4; i += 1) {
 
-                let color = Color.shared.setValue([cls[i * 8], cls[i * 8 + 1], cls[i * 8 + 2]]).toHex();
 
-                this.lines.fill(color);
-                this.lines.width = 1.0
-                // , color, cls[i * 8 + 3]
-                this.lines.moveTo(vtx[i * 4], -vtx[i * 4 + 1]);
-                this.lines.lineTo(vtx[i * 4 + 2], -vtx[i * 4 + 3]);
+                let color = Color.shared.setValue([
+                    cls[i * 8] * 256,
+                    cls[i * 8 + 1] * 256,
+                    cls[i * 8 + 2] * 256
+                ]).toHex();
+
+                const path = [
+                    vtx[i * 4], -vtx[i * 4 + 1],
+                    vtx[i * 4 + 2], -vtx[i * 4 + 3]
+                ];
+
+                this.lines.poly(path, false);
+                this.lines.stroke({
+                    width: .05,
+                    color: color
+                });
+
+                this.viewport.addChild(this.lines)
             }
         } else {
             this.lines.clear();
         }
 
-        this.updatePositions(world);
 
     }
 
     lookAt(pos: { zoom: number; target: { x: number; y: number } }) {
-        //this.viewport.zoom = pos.zoom
-        // this.viewport.zoom(pos.zoom);
-        this.viewport.scale.x = (pos.zoom)
-        this.viewport.scale.y = (pos.zoom)
+        this.viewport.scaled = (pos.zoom / window.devicePixelRatio)
         this.viewport.moveCenter(pos.target.x, pos.target.y);
     }
 
@@ -190,7 +226,7 @@ export class RapierRenderer {
 
     reset() {
         this.coll2gfx.forEach((gfx) => {
-            // this.viewport.removeChild(gfx);
+            this.viewport.removeChild(gfx);
             gfx.destroy();
         });
         this.coll2gfx = new Map();
@@ -226,6 +262,7 @@ export class RapierRenderer {
                 graphics = instance.clone();
                 graphics.scale.x = rad;
                 graphics.scale.y = rad;
+
                 break;
 
             case RAPIER.ShapeType.Polyline:
@@ -278,13 +315,15 @@ export class RapierRenderer {
         let r = collider.rotation();
 
         if (graphics) {
-            this.viewport.addChild(graphics!);
             graphics.position.x = t.x;
             graphics.position.y = -t.y;
             graphics.rotation = r;
+
+            this.viewport.addChild(graphics!);
+
             this.coll2gfx.set(collider.handle, graphics);
         }
-        this.colorIndex = (this.colorIndex + 1) % (this.colorPalette.length - 1);
 
+        this.colorIndex = (this.colorIndex + 1) % (this.colorPalette.length - 1);
     }
 }
