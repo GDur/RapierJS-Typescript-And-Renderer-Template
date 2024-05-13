@@ -80,6 +80,7 @@ export async function init() {
     },
     onTick: () => {
 
+
       let dynamicOffset = Math.cos(i * 0.02) * 5;
       movingWall.rigidBody!.setTranslation(new Vector2(dynamicOffset, 0), true);
 
